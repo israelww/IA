@@ -1,5 +1,3 @@
-"""Comentarista IA de Minecraft Skywars - aplicacion principal Streamlit."""
-
 import io
 import os
 import sys
@@ -12,13 +10,13 @@ import torch
 os.environ["TQDM_DISABLE"] = "1"
 
 from modules.capture import extract_sampled_frames
-from modules.commentary_pipeline import (
+from modules.comentarista_pipeline import (
     build_commentary_sequences,
     enrich_sequences_with_action_tags,
     narrate_sequences,
 )
 from modules.heuristic import filter_frames_to_comment
-from modules.narrator import CATEGORY_EMOJI, NarratorModel
+from modules.narrador import CATEGORY_EMOJI, NarratorModel
 from modules.tts import TTSModel, synthesize_sequence_comments
 from modules.video_mixer import overlay_commentary_on_video
 from modules.vision import VisionModel, analyze_frames
@@ -81,83 +79,58 @@ else:
 if action_model is None:
     st.sidebar.warning("Detector visual de acciones no disponible, usando solo captions.")
 
-fps_sample = st.sidebar.slider("Frames por segundo a analizar", 1, 8, 3)
-cooldown_frames = st.sidebar.slider("Cooldown entre eventos", 1, 12, 4)
-similarity_threshold = st.sidebar.slider(
-    "Umbral de similitud para cambio de escena",
-    min_value=0.0,
-    max_value=1.0,
-    value=0.7,
-    step=0.05,
+analysis_presets = {
+    "Rapido": {"fps_sample": 2, "resize_mode": "640x360"},
+    "Equilibrado": {"fps_sample": 3, "resize_mode": "original"},
+    "Detallado": {"fps_sample": 5, "resize_mode": "original"},
+}
+analysis_quality = st.sidebar.selectbox(
+    "Calidad del analisis",
+    options=list(analysis_presets.keys()),
+    index=1,
 )
-
-st.sidebar.divider()
-st.sidebar.subheader("Narracion por Secuencia")
-context_before = st.sidebar.slider("Frames de contexto antes del evento", 0, 5, 2)
-context_after = st.sidebar.slider("Frames de contexto despues del evento", 1, 8, 4)
-max_sequences = st.sidebar.slider("Maximo de comentarios en timeline", 6, 30, 18)
-min_commentary_count = st.sidebar.slider("Minimo de comentarios deseados", 3, 20, 8)
-top_action_tags = st.sidebar.slider("Acciones visuales por secuencia", 2, 6, 3)
-action_window_radius = st.sidebar.slider("Ventana temporal de accion (+/- frames)", 1, 4, 2)
-action_score_threshold = st.sidebar.slider(
-    "Umbral de confianza de acciones",
-    min_value=0.05,
-    max_value=0.40,
-    value=0.20,
-    step=0.01,
+selected_preset = analysis_presets[analysis_quality]
+fps_sample = st.sidebar.slider(
+    "Frames por segundo a analizar",
+    min_value=1,
+    max_value=8,
+    value=selected_preset["fps_sample"],
+    step=1,
 )
-max_captions_per_sequence = st.sidebar.slider(
-    "Maximo de captions por secuencia",
-    3,
-    10,
-    7,
-)
-resize_mode = st.sidebar.selectbox(
-    "Resolucion para vision",
-    options=["original", "960x540", "640x360"],
-    index=0,
-)
-min_spacing_s = st.sidebar.slider(
-    "Separacion minima entre comentarios (s)",
-    min_value=0.0,
-    max_value=2.0,
-    value=0.10,
-    step=0.05,
+min_commentary_count = st.sidebar.slider(
+    "Cantidad de comentarios",
+    min_value=3,
+    max_value=20,
+    value=8,
+    step=1,
 )
 speaking_rate = st.sidebar.slider(
-    "Velocidad de narracion (voz)",
+    "Velocidad de narracion",
     min_value=0.8,
     max_value=2.0,
     value=1.32,
     step=0.02,
 )
-max_comment_words = st.sidebar.slider(
-    "Palabras maximas por comentario",
-    min_value=10,
-    max_value=32,
-    value=18,
-    step=1,
-)
 
 st.sidebar.divider()
-st.sidebar.subheader("Mezcla de Audio")
+st.sidebar.subheader("Audio")
 game_audio_volume = st.sidebar.slider("Volumen del juego", 0.1, 1.5, 0.8, 0.05)
 commentary_volume = st.sidebar.slider("Volumen del narrador", 0.5, 2.5, 1.35, 0.05)
 
-st.sidebar.divider()
-st.sidebar.markdown(
-    "**Categorias detectadas:**\n"
-    "- 🚀 Inicio\n"
-    "- 📦 Loot\n"
-    "- 🧱 Puenteo\n"
-    "- 🎯 Centro\n"
-    "- ⚔️ Combate\n"
-    "- 💀 Eliminacion\n"
-    "- 🌌 Peligro vacio\n"
-    "- 🔥 Cierre\n"
-    "- 🏆 Victoria\n"
-    "- 🎮 General"
-)
+resize_mode = selected_preset["resize_mode"]
+max_sequences = min(30, max(12, min_commentary_count + 8))
+
+# Ajustes internos afinados para no saturar el panel de Streamlit.
+cooldown_frames = 4
+similarity_threshold = 0.7
+context_before = 2
+context_after = 4
+top_action_tags = 3
+action_window_radius = 2
+action_score_threshold = 0.20
+max_captions_per_sequence = 7
+min_spacing_s = 0.10
+max_comment_words = 26
 
 uploaded_file = st.file_uploader("Sube un video .mp4 de Skywars", type=["mp4"])
 if uploaded_file is None:
@@ -222,11 +195,12 @@ if st.button("Analizar y Renderizar Video Narrado", type="primary"):
             narrator_model.max_comment_words = max_comment_words
             narrated_sequences = narrate_sequences(sequences, narrator_model)
 
+        output_stamp = datetime.now().strftime("%Y%m%d_%H%M%S")
         with st.spinner("Sintetizando voces y timeline de comentarios..."):
             timeline = synthesize_sequence_comments(
                 narrated_sequences,
                 tts_model,
-                output_dir="outputs/audio_timeline",
+                output_dir=str(Path("outputs/audio_timeline") / output_stamp),
                 min_spacing_s=min_spacing_s,
                 speaking_rate=speaking_rate,
             )
@@ -237,7 +211,7 @@ if st.button("Analizar y Renderizar Video Narrado", type="primary"):
                 "abajo en el timeline."
             )
 
-        output_name = f"commentated_{datetime.now().strftime('%Y%m%d_%H%M%S')}.mp4"
+        output_name = f"commentated_{output_stamp}.mp4"
         output_video_path = str(Path("outputs/final") / output_name)
 
         with st.spinner("Mezclando comentario sobre el video final..."):
