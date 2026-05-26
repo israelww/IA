@@ -1,0 +1,44 @@
+{
+  "timestamp": "2026-05-25T18:24:15",
+  "modelo": {
+    "arquitectura": "resnet18",
+    "num_clases": 10,
+    "mejor_epoca": 25,
+    "dispositivo": "cuda"
+  },
+  "metricas_test_fase5": {
+    "accuracy": 0.9875,
+    "precision": 0.98843,
+    "recall": 0.9875,
+    "f1": 0.98758
+  },
+  "umbral_fase8": {},
+  "peores_clases": [
+    {
+      "clase": "Natalie Portman",
+      "f1": 0.9481481481481482,
+      "support": 64
+    },
+    {
+      "clase": "Brad Pitt",
+      "f1": 0.9661016949152542,
+      "support": 60
+    },
+    {
+      "clase": "Angelina Jolie",
+      "f1": 0.967741935483871,
+      "support": 64
+    },
+    {
+      "clase": "Jennifer Lawrence",
+      "f1": 0.967741935483871,
+      "support": 64
+    },
+    {
+      "clase": "Leonardo DiCaprio",
+      "f1": 0.9696969696969697,
+      "support": 64
+    }
+  ],
+  "rendimiento_camara": {}
+}

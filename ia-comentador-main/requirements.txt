@@ -1,0 +1,8 @@
+streamlit>=1.30
+opencv-python>=4.8
+numpy>=1.24
+transformers>=4.38
+torch>=2.0
+scipy>=1.11
+Pillow>=10.0
+mss>=9.0

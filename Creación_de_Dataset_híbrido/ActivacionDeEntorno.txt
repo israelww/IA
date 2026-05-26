@@ -1,0 +1,18 @@
+## Confirmar el Python activo:
+Ejecutar python --version
+Ejecutar python -c "import sys; print(sys.executable)"
+Si no existe venv en la raíz del repo, crearlo:
+python -m venv venv
+Activar el venv según terminal:
+PowerShell: .\venv\Scripts\Activate.ps1
+CMD: venv\Scripts\activate.bat
+Instalar dependencias en ese mismo entorno:
+pip install --upgrade pip
+pip install -r requirements.txt
+Validar OpenCV en el mismo intérprete:
+python -c "import cv2; print(cv2.version)"
+Alinear VS Code con ese intérprete:
+Python: Select Interpreter
+Seleccionar venv\Scripts\python.exe
+Ejecutar el script desde la raíz del proyecto:
+python "Face-Recognition Proyect\Scripts\Captura.py"
