@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from collections import Counter
 from difflib import SequenceMatcher
+import re
 
 _NOISE_PATTERNS = [
     "youtube",
@@ -23,7 +24,6 @@ _VISUAL_SIGNALS: dict[str, list[str]] = {
         "fighting",
         "pvp",
         "duel",
-        "sword",
         "melee",
         "hits",
         "critical",
@@ -82,6 +82,23 @@ _SIGNAL_ES: dict[str, str] = {
     "cierre": "posible tramo final",
     "victoria": "victoria",
 }
+
+_NON_CASTER_VISUAL_PATTERNS = [
+    r"\bSe ve\b[^.?!]*[.?!]",
+    r"\bLa escena muestra\b[^.?!]*[.?!]",
+    r"\bLa lectura visual marca\b[^.?!]*[.?!]",
+    r"\bVisualmente hay\b[^.?!]*[.?!]",
+    r"\bEn pantalla aparece\b[^.?!]*[.?!]",
+]
+
+
+def _clean_commentary_for_audio(comment: str) -> str:
+    """Quita frases descriptivas que suenan a reporte tecnico, no a caster en vivo."""
+    clean = comment or ""
+    for pattern in _NON_CASTER_VISUAL_PATTERNS:
+        clean = re.sub(pattern, "", clean, flags=re.IGNORECASE)
+    clean = re.sub(r"\s+", " ", clean).strip()
+    return clean or "Momento clave de Skywars, toca mantener el ritmo."
 
 
 def _clean_caption(caption: str) -> str:
@@ -180,8 +197,52 @@ def _extract_visual_signals(captions: list[str]) -> list[str]:
     signals: list[str] = []
     for signal_name, keywords in _VISUAL_SIGNALS.items():
         if any(keyword in lower_blob for keyword in keywords):
-                signals.append(signal_name)
+            signals.append(signal_name)
     return signals
+
+
+def _has_any(text: str, keywords: list[str]) -> bool:
+    return any(keyword in text for keyword in keywords)
+
+
+def _build_scene_observation_es(captions: list[str], visual_signals: list[str]) -> str:
+    """Resume lo que parece verse sin afirmar demasiado cuando la vision es ambigua."""
+    lower_blob = " ".join(captions).lower()
+    if not lower_blob and not visual_signals:
+        return ""
+
+    observations: list[str] = []
+
+    def add(text: str) -> None:
+        if text not in observations:
+            observations.append(text)
+
+    if _has_any(lower_blob, ["victory", "winner", "you win", "win screen"]):
+        add("pantalla de victoria o cierre de ronda")
+    if _has_any(lower_blob, ["falling", "fell", "void", "edge", "knockback near edge"]):
+        add("jugada cerca del vacio")
+    if _has_any(lower_blob, ["bridge", "bridging", "placing blocks", "island to island"]):
+        add("cruce entre islas o puenteo")
+    if _has_any(lower_blob, ["chest", "inventory", "looting", "armor", "helmet"]):
+        add("loot o gestion de inventario")
+    if _has_any(lower_blob, ["golden apple", "gapple", "drinking potion", "potion", "healing"]):
+        add("curacion o preparacion para reentrar")
+    if _has_any(lower_blob, ["snowball", "snowballs", "egg", "eggs", "throwing"]):
+        add("presion con proyectiles")
+    if _has_any(lower_blob, ["fighting", "pvp", "duel", "melee", "hits", "enemy", "rival"]):
+        add("pelea o amenaza directa")
+    elif "sword" in lower_blob:
+        add("espada o equipo listo en pantalla")
+    if _has_any(lower_blob, ["mid", "center", "middle island"]):
+        add("disputa o rotacion por el centro")
+    if _has_any(lower_blob, ["running", "rotating", "jumping", "sprinting"]):
+        add("movimiento de rotacion")
+
+    if not observations:
+        translated = [_SIGNAL_ES.get(signal, signal) for signal in visual_signals[:2]]
+        observations = translated or ["lectura visual ambigua de Skywars"]
+
+    return f"Escena: {', '.join(observations[:3])}"
 
 
 def _progress_ratio(start_time_s: float, video_duration_s: float) -> float:
@@ -203,8 +264,12 @@ def _detect_phase_hint(
     if "victory" in caption_blob or "you win" in caption_blob or "win screen" in caption_blob:
         return "cierre"
 
-    is_near_opening = start_time_s <= 8.0 or progress <= 0.12
-    if ("inicio" in lower_reason and (start_time_s <= 12.0 or progress <= 0.15)) or is_near_opening:
+    start_text_signals = ["spawn", "starting island", "island spawn", "cage", "countdown"]
+    explicit_start_reason = "inicio" in lower_reason or "apertura" in lower_reason
+    has_start_visual = any(signal in caption_blob for signal in start_text_signals)
+    if (explicit_start_reason and start_time_s <= 8.0) or (
+        start_time_s <= 4.0 and (explicit_start_reason or has_start_visual)
+    ):
         return "inicio"
 
     late_text_signals = ["endgame", "deathmatch", "top 2", "top 3", "last players"]
@@ -230,19 +295,45 @@ def _build_context_summary_es(
     progress_pct: int,
     visual_signals: list[str],
     trigger_reasons: list[str],
+    captions: list[str] | None = None,
 ) -> str:
     phase_text = f"Fase: {_phase_label_es(phase_hint)} ({progress_pct}% del video)"
+    scene_text = _build_scene_observation_es(captions or [], visual_signals)
     signal_text = ""
     if visual_signals:
         translated = [_SIGNAL_ES.get(signal, signal) for signal in visual_signals]
-        signal_text = f"Senales: {', '.join(translated)}"
+        signal_text = f"Señales: {', '.join(translated)}"
 
     reason_text = ""
     if trigger_reasons:
         reason_text = f"Evento: {', '.join(sorted(set(trigger_reasons)))}"
 
-    parts = [part for part in [phase_text, signal_text, reason_text] if part]
+    parts = [part for part in [phase_text, scene_text, signal_text, reason_text] if part]
     return ". ".join(parts) + "."
+
+
+def _replace_scene_with_action_summary(summary: str, action_summary_es: str) -> str:
+    """Si CLIP detecta una accion estable, priorizarla sobre captions ambiguos."""
+    clean_summary = summary.strip()
+    clean_action = action_summary_es.strip()
+    if not clean_summary or not clean_action:
+        return clean_summary
+
+    parts = [part.strip() for part in clean_summary.rstrip(".").split(". ") if part.strip()]
+    updated_parts: list[str] = []
+    inserted_action = False
+    for part in parts:
+        if part.startswith("Escena:"):
+            updated_parts.append(f"Accion principal: {clean_action}")
+            inserted_action = True
+            continue
+        if inserted_action and part.startswith("Señales:"):
+            continue
+        updated_parts.append(part)
+
+    if not inserted_action:
+        updated_parts.append(f"Accion principal: {clean_action}")
+    return ". ".join(updated_parts) + "."
 
 
 def _remove_unreliable_item_claims(text: str) -> str:
@@ -290,8 +381,10 @@ def _build_sequence_context(
     signals = _extract_visual_signals(captions)
     if phase_hint != "cierre":
         signals = [signal for signal in signals if signal not in {"cierre"}]
+    scene_text = _build_scene_observation_es(captions, signals)
     compact_captions = " ; ".join(captions[:4])
-    signal_text = f"Senales tacticas: {', '.join(signals)}." if signals else ""
+    scene_context = f"Escena percibida: {scene_text.replace('Escena: ', '')}." if scene_text else ""
+    signal_text = f"Señales tacticas: {', '.join(signals)}." if signals else ""
     reason_text = (
         f"Razones detectadas: {', '.join(sorted(set(trigger_reasons)))}."
         if trigger_reasons
@@ -299,7 +392,7 @@ def _build_sequence_context(
     )
     return (
         f"Secuencia de skywars. {phase_text} Resumen visual: {context_summary_es} "
-        f"Captions utiles: {compact_captions}. {signal_text} {reason_text}"
+        f"{scene_context} Captions utiles: {compact_captions}. {signal_text} {reason_text}"
     ).strip()
 
 
@@ -430,6 +523,7 @@ def build_commentary_sequences(
             progress_pct=progress_pct,
             visual_signals=visual_signals,
             trigger_reasons=trigger_reasons,
+            captions=captions,
         )
         context_caption = _build_sequence_context(
             captions=captions,
@@ -471,7 +565,7 @@ def narrate_sequences(sequences: list[dict], model) -> list[dict]:
         updated = dict(sequence)
         try:
             comment, category = model.generate_comment(sequence["context_caption"])
-            updated["comment"] = comment
+            updated["comment"] = _clean_commentary_for_audio(comment)
             updated["category"] = category
         except Exception:
             updated["comment"] = "Momento importante de Skywars en desarrollo."
@@ -567,6 +661,16 @@ def enrich_sequences_with_action_tags(
             action_aliases = [tag["alias"] for tag in action_tags]
             action_text = ", ".join(action_aliases)
             action_text_es = ", ".join(_ACTION_ALIAS_ES.get(alias, alias) for alias in action_aliases)
+            primary_action_es = _ACTION_ALIAS_ES.get(action_aliases[0], action_aliases[0])
+            previous_summary = str(updated.get("context_summary_es", "")).strip()
+            if previous_summary and "Acciones estables:" not in previous_summary:
+                previous_summary = _replace_scene_with_action_summary(
+                    previous_summary,
+                    primary_action_es,
+                )
+                updated["context_summary_es"] = (
+                    f"{previous_summary} Acciones estables: {action_text_es}."
+                )
             updated["context_caption"] = (
                 f"{updated.get('context_caption', '').strip()} "
                 f"Acciones visuales probables: {action_text}. "

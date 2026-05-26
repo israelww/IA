@@ -1,5 +1,3 @@
-"""Narrador inteligente para Minecraft Skywars con reglas robustas."""
-
 from __future__ import annotations
 
 import random
@@ -93,7 +91,6 @@ _CATEGORY_KEYWORDS: dict[str, list[str]] = {
         "critical hit",
         "knockback",
         "rod",
-        "sword",
         "melee",
         "projectile",
         "snowball",
@@ -210,11 +207,11 @@ _ITEM_KEYWORDS: dict[str, str] = {
 _PROJECTILE_ITEMS = {"snowballs", "huevos"}
 
 _CONTEXT_KEYWORDS: dict[str, list[str]] = {
-    "mid": ["mid", "center", "centro", "middle island", "middle"],
-    "bridge": ["bridge", "bridging", "placing blocks", "speed bridge", "ninja bridge", "puente"],
-    "void": ["void", "vacio", "falling", "fell", "edge", "borde", "filo", "knocked", "clutch", "mlg water"],
+    "mid": ["mid", "center", "centro", "middle island", "middle", "zona central"],
+    "bridge": ["bridge", "bridging", "placing blocks", "speed bridge", "ninja bridge", "puente", "puenteo", "cruce entre islas"],
+    "void": ["void", "vacio", "falling", "fell", "edge", "borde", "filo", "knocked", "clutch", "mlg water", "cerca del vacio"],
     "height": ["high ground", "tower", "top", "elevated", "above", "altura", "torre"],
-    "pressure": ["rush", "pushing", "chasing", "sprinting", "aggressive", "presion", "persecucion"],
+    "pressure": ["rush", "pushing", "chasing", "sprinting", "aggressive", "presion", "persecucion", "amenaza directa", "proyectiles"],
     "defense": ["hiding", "cover", "wall", "holding angle", "camping", "sneak", "defensiva"],
     "low_health": ["low health", "one heart", "half heart", "critical health", "hearts low"],
 }
@@ -237,6 +234,16 @@ _TEMPLATES: dict[str, list[str]] = {
         "Primeros segundos: loot rapido o rush directo.",
         "Arranque limpio; necesita velocidad antes del cruce.",
         "Inicio de ronda, el timing ya empieza a contar.",
+        "Arranca la ronda; toca leer cofres, ruta y primer rival.",
+        "Primer movimiento: saqueo rapido y salida con decision.",
+        "Empieza Skywars; cada segundo perdido abre la puerta al rush.",
+        "Inicio con tension: necesita loot y ruta sin quedarse quieto.",
+        "Sale la partida y ya importa quien toma la iniciativa.",
+        "Primeros compases; mira recursos y prepara el cruce.",
+        "Apertura activa, si encuentra equipo puede acelerar.",
+        "Se despierta el mapa; hay que decidir entre loot o presion.",
+        "Comienza el round, la ventaja nace desde el primer cofre.",
+        "Apenas inicia y ya busca tempo para no quedar encerrado.",
     ],
     "loot": [
         "Abre cofre y acelera la salida.",
@@ -245,18 +252,48 @@ _TEMPLATES: dict[str, list[str]] = {
         "Se equipa con {item} y prepara presion.",
         "Inventario rapido para entrar mejor al duelo.",
         "Consigue recursos y busca la siguiente rotacion.",
+        "Loot veloz; si no duda, puede tomar mapa.",
+        "Revisa inventario y arma la siguiente jugada.",
+        "Cada item cuenta, pero quedarse mucho aqui es peligroso.",
+        "Se abastece rapido y ya piensa en la salida.",
+        "Recolecta recursos; la pelea se prepara desde la hotbar.",
+        "Buen momento para ordenar equipo antes de cruzar.",
+        "Encuentra utilidad y puede convertirla en presion.",
+        "Saca valor del cofre y no quiere perder ritmo.",
+        "Gestion de items clave, ahora toca moverse.",
+        "Esta preparando el kit para el primer choque serio.",
     ],
     "puenteo": [
         "Cruce expuesto; un golpe puede mandarlo al vacio.",
         "Puenteo con presion, cada bloque cuenta.",
         "Se abre camino entre islas buscando iniciativa.",
         "Rotacion arriesgada sobre vacio.",
+        "Cruza con riesgo, aqui el knockback castiga durisimo.",
+        "Va por el puente; si lo leen, queda vendido.",
+        "Movimiento valiente entre islas, pero no puede fallar.",
+        "Se lanza a rotar y el vacio mete presion.",
+        "Cada bloque lo acerca a mid, cada segundo lo expone.",
+        "Puenteo tenso; necesita terminar antes de recibir presion.",
+        "El cruce abre mapa, pero tambien abre peligro.",
+        "Busca nueva isla sin perder la iniciativa.",
+        "Rotacion fina: un mal paso cambia la ronda.",
+        "Avanza sobre vacio con el timing encima.",
     ],
     "centro": [
         "Gana espacio en mid y controla rutas.",
         "Pisa centro para castigar rotaciones tardias.",
         "Mid le da recursos y angulos de presion.",
         "Buena rotacion al centro; llega con iniciativa.",
+        "Toma zona central y empieza a dictar el ritmo.",
+        "Centro en disputa; quien controle rutas controla pelea.",
+        "Llega a mid y fuerza al resto a reaccionar.",
+        "Buena posicion, desde aqui puede leer todo el mapa.",
+        "Gana terreno importante para cortar rotaciones.",
+        "Mid se vuelve clave: recursos, altura y presion.",
+        "Se instala en una zona que puede decidir la partida.",
+        "Control central, pero tiene que vigilar los flancos.",
+        "Rota a la zona fuerte y amenaza cualquier cruce.",
+        "El mapa se abre desde mid; buena lectura de posicion.",
     ],
     "combate": [
         "Duelo abierto; el primer combo pesa mucho.",
@@ -265,41 +302,102 @@ _TEMPLATES: dict[str, list[str]] = {
         "Pelea directa; posicion antes que ego.",
         "Presiona con {item}; busca cortar el avance.",
         "Choque rapido, no puede regalar rango.",
+        "Ojo al trade, se puede romper en un combo.",
+        "Se prende el duelo; spacing y knockback mandan.",
+        "Choque abierto, no hay margen para regalar el primer hit.",
+        "La pelea sube de ritmo; quien controle distancia gana.",
+        "Intercambio caliente, cada golpe cambia la ventaja.",
+        "Se va encima buscando forzar error rival.",
+        "Duelo peligroso, necesita mantener la mira estable.",
+        "Presion directa; si conecta combo, abre la ronda.",
+        "Esto ya es pelea real, posicion y timing pesan todo.",
+        "Se cruzan golpes y el mapa empieza a decidir.",
+        "Momento de manos: no puede perder el control del rango.",
+        "Aprieta el ritmo y obliga al rival a defender.",
     ],
     "eliminacion": [
         "Baja confirmada; se abre el mapa.",
         "Convierte la presion en eliminacion.",
         "El rival cae y cambia el cierre.",
         "Kill importante; gana espacio inmediato.",
+        "Eliminacion clave, ahora tiene mucho mas aire.",
+        "Saca la baja y el mapa se inclina a su favor.",
+        "Presion bien cobrada; un rival menos en la ronda.",
+        "Consigue la kill y puede tomar recursos sin pausa.",
+        "Baja que pesa, especialmente si habia presion encima.",
+        "Lo resuelve y transforma el caos en ventaja.",
+        "Castiga el error rival y gana control.",
+        "Kill limpia, ahora toca convertirla en posicion.",
     ],
     "peligro_vacio": [
         "Al borde del vacio; un hit decide.",
         "Zona peligrosa, no puede regalar knockback.",
         "Se juega la vida en el borde.",
         "Momento delicado sobre vacio.",
+        "Mucho cuidado, el vacio esta demasiado cerca.",
+        "Aqui no hay segunda oportunidad: un empujon termina todo.",
+        "La posicion es critica, cualquier trade puede ser fatal.",
+        "Esta caminando sobre una linea muy fina.",
+        "El borde mete panico, necesita salir de ahi ya.",
+        "Situacion incomoda: defender mal significa caer.",
+        "El mapa aprieta y el vacio castiga cualquier error.",
+        "Zona roja, tiene que elegir entre pelear o escapar.",
+        "Se complica la posicion, el knockback manda.",
+        "Vacio al lado, decision rapida o ronda perdida.",
     ],
     "cierre": [
         "Tramo final; cada rotacion vale oro.",
         "Endgame tenso, posicion antes que ego.",
         "Final cerrado; paciencia y altura deciden.",
         "Quedan pocos, no puede regalar espacio.",
+        "La partida entra en zona caliente, cada error cuesta.",
+        "Cierre de ronda, recursos y calma pesan demasiado.",
+        "Momento decisivo: mejor posicion puede valer la win.",
+        "Ya no hay jugadas gratis, todo se castiga.",
+        "Endgame apretado; necesita leer antes de entrar.",
+        "El mapa se achica mentalmente, cada paso importa.",
+        "Fase final, ahora el tempo vale partida.",
+        "Pocos jugadores, mucha tension y cero margen.",
+        "Tiene que convertir posicion en cierre.",
+        "Se viene el momento donde una rotacion gana o pierde.",
     ],
     "victoria": [
         "Victoria cerrada con buena lectura.",
         "Se lleva el Skywars con autoridad.",
         "Win confirmado; ejecucion limpia.",
         "Cierra la partida sin dar opciones.",
+        "Partida cerrada, gran remate para asegurar la win.",
+        "Victoria en pantalla, lectura solida de principio a fin.",
+        "Lo termina bien y firma una ronda muy seria.",
+        "Win merecida, con control en los momentos clave.",
+        "Cierre perfecto, no deja escapar la ventaja.",
+        "Se queda con la ronda y apaga cualquier respuesta.",
+        "Final contundente, Skywars resuelto.",
+        "La victoria cae con buen manejo del cierre.",
     ],
     "general": [
         "Ronda abierta; toca leer la siguiente rotacion.",
         "Momento de pausa, pero el mapa sigue vivo.",
         "Busca informacion antes de comprometerse.",
         "Se mantiene activo, esperando ventana clara.",
+        "La ronda respira, pero cualquier cruce puede activar pelea.",
+        "Se reposiciona y busca una lectura mas clara.",
+        "No todo es pelea: tambien importa elegir bien la ruta.",
+        "Momento de lectura, el siguiente movimiento pesa.",
+        "Mantiene ritmo mientras revisa opciones del mapa.",
+        "Aun no se define, pero la presion esta creciendo.",
+        "Busca informacion sin regalar posicion.",
+        "La escena esta abierta; falta encontrar la ventana buena.",
+        "Se mueve con cautela, esperando el error rival.",
+        "Hay tension latente, cualquier contacto puede explotar.",
     ],
     "fallback_error": [
         "Escena confusa, pero la partida sigue intensa y abierta.",
         "No se ve claro el detalle, mantenemos foco en el ritmo del juego.",
         "Frame ambiguo, seguimos leyendo la siguiente accion clave.",
+        "La vision no lo deja perfecto, pero el ritmo sigue vivo.",
+        "Lectura dificil; mejor narrar posicion y tempo sin inventar.",
+        "No hay detalle fiable, seguimos con la lectura general del mapa.",
     ],
 }
 
@@ -309,6 +407,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Pantalla de victoria; la ronda queda cerrada.",
             "Win en pantalla, cierre limpio.",
+            "Victoria visible, ya no hay vuelta atras.",
+            "La pantalla confirma el cierre de la partida.",
+            "Ronda terminada, remate firme.",
+            "Aparece la win y se acaba la tension.",
         ],
     ),
     (
@@ -316,6 +418,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Caida al vacio; castigo total al posicionamiento.",
             "Se va al vacio y la pelea cambia al instante.",
+            "Pierde el suelo y el mapa cobra la factura.",
+            "El vacio decide la jugada de golpe.",
+            "No alcanza a salvarse, caida durisima.",
+            "Un mal trade termina directo abajo.",
         ],
     ),
     (
@@ -323,6 +429,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Knockback cerca del borde; un hit mas decide.",
             "Lo empuja al filo y fuerza panico defensivo.",
+            "Lo manda hacia el borde y sube la tension.",
+            "Ese empujon casi rompe la ronda.",
+            "El knockback lo deja en zona critica.",
+            "Empuje peligroso, ahora tiene que estabilizarse.",
         ],
     ),
     (
@@ -330,6 +440,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Esta al borde; no puede aceptar otro trade.",
             "Zona de vacio, cualquier golpe lo sentencia.",
+            "Muy cerca del vacio, toca jugar perfecto.",
+            "El borde esta metiendo toda la presion.",
+            "No puede retroceder mas, el mapa lo encierra.",
+            "Peligro maximo, un error y desaparece.",
         ],
     ),
     (
@@ -337,6 +451,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Puenteo sobre vacio; cruce muy castigable.",
             "Cruza expuesto, necesita terminar rapido.",
+            "Va sobre el vacio, cada bloque pesa.",
+            "Rotacion peligrosa, si lo ven queda vendido.",
+            "Puentea con riesgo y busca no perder tempo.",
+            "Cruce tenso, tiene que mirar rival y camino a la vez.",
         ],
     ),
     (
@@ -344,6 +462,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Persecucion en puente; el knockback manda.",
             "Lo corre en linea recta, buscando el golpe final.",
+            "Presiona en puente, terreno perfecto para empujar.",
+            "La persecucion se vuelve peligrosa sobre el cruce.",
+            "Lo sigue de cerca y amenaza caida inmediata.",
+            "Puente bajo presion, aqui no hay espacio para fallar.",
         ],
     ),
     (
@@ -351,6 +473,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Sube por altura y obliga al rival a mirar arriba.",
             "Toma verticalidad para pelear con ventaja.",
+            "Busca altura para mandar el ritmo del duelo.",
+            "Se eleva y cambia el angulo de la pelea.",
+            "Torre rapida, quiere pelear desde ventaja.",
+            "Gana verticalidad y fuerza al rival a incomodarse.",
         ],
     ),
     (
@@ -358,6 +484,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "1v1 final; aqui no hay margen.",
             "Duelo final, cada hit vale partida.",
+            "Ultimo cruce, una mala entrada define todo.",
+            "Mano a mano total, el siguiente combo puede cerrar.",
+            "Final de nervios, cada pixel de rango importa.",
+            "La ronda se reduce a un duelo directo.",
         ],
     ),
     (
@@ -365,6 +495,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Se cura antes de reentrar al trade.",
             "Manzana dorada para comprar segundos clave.",
+            "Come manzana y prepara una reentrada mas fuerte.",
+            "Buena pausa de curacion antes del siguiente choque.",
+            "Compra vida extra para no regalar el trade.",
+            "Se blinda con manzana, quiere volver a pelear.",
         ],
     ),
     (
@@ -372,6 +506,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Pocion usada para reiniciar la pelea.",
             "Recupera vida y busca volver con tempo.",
+            "Pocion a tiempo para sostener la presion.",
+            "Se cura rapido y evita quedar vendido.",
+            "Reset defensivo, ahora puede volver al intercambio.",
+            "Toma aire con la pocion antes de reentrar.",
         ],
     ),
     (
@@ -379,6 +517,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Huevos para cortar avance y buscar knockback.",
             "Tira huevos para romper el timing rival.",
+            "Proyectiles rapidos para negar el cruce.",
+            "Usa huevos para incomodar y abrir distancia.",
+            "Presion barata pero peligrosa, busca empujar.",
+            "Corta el avance con huevos y cambia el ritmo.",
         ],
     ),
     (
@@ -386,6 +528,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Snowballs para frenar entrada y abrir combo.",
             "Presiona con snowballs, buscando descolocar.",
+            "Snowballs al frente para romper el spacing rival.",
+            "Usa snowballs y busca convertirlas en combo.",
+            "Proyectiles de presion, no deja entrar comodo.",
+            "Frena el avance con snowballs y gana segundos.",
         ],
     ),
     (
@@ -393,6 +539,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Cofre rapido; quiere salir antes del rush.",
             "Loot directo, sin regalar segundos.",
+            "Abre cofre y busca el item que cambie el inicio.",
+            "Saqueo veloz, necesita convertirlo en ruta.",
+            "Toma recursos y ya tiene que pensar en moverse.",
+            "Loot en pantalla, cada segundo aqui cuenta.",
         ],
     ),
     (
@@ -400,6 +550,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Ajusta inventario para entrar mas limpio.",
             "Ordena la hotbar antes del siguiente choque.",
+            "Gestiona items para no fallar en la pelea.",
+            "Hotbar en orden, preparando la siguiente entrada.",
+            "Se toma un segundo para armar bien la mano.",
+            "Acomoda recursos, decision pequena pero clave.",
         ],
     ),
     (
@@ -407,6 +561,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Cambia equipo rapido y prepara reentrada.",
             "Swap veloz; busca llegar mejor al duelo.",
+            "Cambia piezas y mejora antes de exponerse.",
+            "Ajuste rapido de equipo para pelear con ventaja.",
+            "Swap oportuno, no quiere entrar mal armado.",
+            "Se reequipa y sube sus opciones en el choque.",
         ],
     ),
     (
@@ -414,6 +572,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Rota entre islas buscando mejor angulo.",
             "Cambia de isla para no quedar encerrado.",
+            "Busca otra ruta y cambia el angulo de presion.",
+            "Rotacion inteligente para evitar quedar atrapado.",
+            "Se mueve entre islas y abre nuevas opciones.",
+            "Cambio de posicion, quiere leer mejor el mapa.",
         ],
     ),
     (
@@ -421,6 +583,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Se cubre y fuerza al rival a iniciar.",
             "Defiende posicion, esperando error rival.",
+            "Aguanta el angulo y no regala entrada.",
+            "Se planta defensivo, obligando al rival a exponerse.",
+            "Juega paciente y busca castigar la prisa rival.",
+            "Posicion cerrada, quiere que el otro cometa el error.",
         ],
     ),
     (
@@ -428,6 +594,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Melee directo; el rango decide el trade.",
             "Entra al cuerpo a cuerpo buscando combo.",
+            "Espada contra espada, aqui mandan los hits limpios.",
+            "Duelo cerrado, un combo cambia toda la ronda.",
+            "Se mete al melee y fuerza respuesta inmediata.",
+            "Cuerpo a cuerpo intenso, no puede perder distancia.",
         ],
     ),
     (
@@ -435,6 +605,10 @@ _ACTION_TEMPLATES: list[tuple[str, list[str]]] = [
         [
             "Trade corto; cada golpe mueve la ventaja.",
             "Intercambio rapido, no hay espacio gratis.",
+            "Golpes rapidos, la ventaja cambia en segundos.",
+            "Trade breve pero peligroso, ojo al knockback.",
+            "Choque corto, perfecto para sacar combo.",
+            "Intercambio de reflejos, nada esta seguro.",
         ],
     ),
 ]
@@ -453,12 +627,13 @@ CATEGORY_EMOJI: dict[str, str] = {
 }
 
 _PRIORITY_CATEGORIES = ["victoria", "eliminacion", "peligro_vacio"]
-_MAX_COMMENT_WORDS = 22
+_MAX_COMMENT_WORDS = 26
 
 
 @dataclass
 class SceneContext:
     item: str = "su equipo"
+    scene_read: str = ""
     action_tags: tuple[str, ...] = ()
     visual_signals: tuple[str, ...] = ()
     phase_hint: str = "medio"
@@ -480,7 +655,7 @@ class NarratorModel:
 
     def __init__(self):
         self._used_recently: list[str] = []
-        self._max_memory = 10
+        self._max_memory = 28
         self._last_category = "general"
         self._last_comment = ""
         self._category_streak = 0
@@ -501,11 +676,23 @@ class NarratorModel:
             return True
         return lower.startswith("error ") or "traceback" in lower
 
-    def _extract_item(self, caption: str) -> str:
+    def _extract_item(self, caption: str, action_tags: tuple[str, ...] = ()) -> str:
         lower = self._normalize(caption)
         has_stable_action_read = "lectura en espanol" in lower
         if not has_stable_action_read:
             return "su equipo"
+
+        for action_tag in action_tags:
+            if "manzana dorada" in action_tag:
+                return "manzana dorada"
+            if "pocion" in action_tag:
+                return "pocion"
+            if "snowballs" in action_tag:
+                return "snowballs"
+            if "huevos" in action_tag:
+                return "huevos"
+            if action_tag in {"loot de cofre", "gestion de inventario", "cambio rapido de equipo"}:
+                return "su equipo"
 
         if "curacion con manzana dorada" in lower or "eating golden apple" in lower:
             return "manzana dorada"
@@ -545,7 +732,14 @@ class NarratorModel:
         return tuple(tags)
 
     def _extract_visual_signals(self, lower: str) -> tuple[str, ...]:
-        return self._extract_marker_values(lower, "senales tacticas")
+        return self._extract_marker_values(lower, "señales tacticas")
+
+    def _extract_scene_read(self, lower: str) -> str:
+        for marker in ["escena percibida", "escena"]:
+            match = re.search(rf"{re.escape(marker)}\s*:\s*([^.]*)", lower)
+            if match:
+                return match.group(1).strip(" ;")
+        return ""
 
     def _extract_phase_hint(self, lower: str) -> str:
         match = re.search(r"fase temporal\s*:\s*(inicio|medio|cierre)", lower)
@@ -565,13 +759,15 @@ class NarratorModel:
 
     def _extract_context(self, caption: str) -> SceneContext:
         lower = self._normalize(caption)
-        item = self._extract_item(caption)
+        scene_read = self._extract_scene_read(lower)
         action_tags = self._extract_action_tags(lower)
+        item = self._extract_item(caption, action_tags)
         visual_signals = self._extract_visual_signals(lower)
         phase_hint = self._extract_phase_hint(lower)
         progress_pct = self._extract_progress_pct(lower)
         return SceneContext(
             item=item,
+            scene_read=scene_read,
             action_tags=action_tags,
             visual_signals=visual_signals,
             phase_hint=phase_hint,
@@ -709,6 +905,7 @@ class NarratorModel:
 
     def _build_specific_comment(self, category: str, ctx: SceneContext) -> str:
         action_blob = " ".join(ctx.action_tags)
+        action_options_by_name = dict(_ACTION_TEMPLATES)
 
         if ctx.void_risk and any(item in action_blob for item in ["presion con huevos", "presion con snowballs"]):
             return self._pick_from_options(
@@ -728,6 +925,13 @@ class NarratorModel:
                 ]
             )
 
+        for action_name in ctx.action_tags:
+            if action_name in {"duelo final 1v1", "pantalla de victoria"} and ctx.phase_hint != "cierre":
+                continue
+            options = action_options_by_name.get(action_name)
+            if options:
+                return self._pick_from_options(options)
+
         for action_name, options in _ACTION_TEMPLATES:
             if action_name in {"duelo final 1v1", "pantalla de victoria"} and ctx.phase_hint != "cierre":
                 continue
@@ -739,6 +943,9 @@ class NarratorModel:
                 [
                     "Rota para ganar angulo antes del choque.",
                     "Busca nueva ruta sin quedarse encerrado.",
+                    "Cambia de carril y amenaza otra entrada.",
+                    "Se mueve para llegar con mejor timing.",
+                    "Rotacion viva, quiere encontrar el angulo bueno.",
                 ]
             )
         if category == "combate" and "combate" in ctx.visual_signals:
@@ -746,6 +953,11 @@ class NarratorModel:
                 [
                     "Pelea activa; necesita mantener posicion.",
                     "Se arma el trade, el spacing importa.",
+                    "El duelo se calienta y el primer combo pesa.",
+                    "Hay contacto directo, toca cuidar el rango.",
+                    "La pelea esta viva y cualquier hit cambia todo.",
+                    "Se siente presion de combate, no puede dudar.",
+                    "El intercambio amenaza con romper la ronda.",
                 ]
             )
         if category == "puenteo" and "riesgo_vacio" in ctx.visual_signals:
@@ -753,6 +965,9 @@ class NarratorModel:
                 [
                     "Cruce peligroso, cualquier hit castiga.",
                     "Esta expuesto sobre vacio.",
+                    "Puente y vacio, combinacion de mucho riesgo.",
+                    "Rotacion castigable, necesita cruzar ya.",
+                    "Cada bloque suma tension en este cruce.",
                 ]
             )
         return ""
